@@ -21,6 +21,9 @@ CLASS zial_cl_aunit DEFINITION
       IMPORTING iv_active        TYPE abap_bool
       RETURNING VALUE(rv_result) TYPE abap_bool.
 
+    METHODS set_sql_data
+      IMPORTING it_sql_data TYPE zial_tt_aunit_sql_test_data.
+
   PROTECTED SECTION.
     CLASS-DATA mo_instance TYPE REF TO zial_cl_aunit.
 
@@ -31,8 +34,8 @@ CLASS zial_cl_aunit DEFINITION
     DATA mo_tdc          TYPE REF TO cl_apl_ecatt_tdc_api.
     DATA mv_tdc_var_name TYPE etvar_id.
 
-    DATA mo_sql          TYPE REF TO if_osql_test_environment.
-    DATA mt_sql_data     TYPE zial_tt_aunit_sql_test_data.
+    DATA mo_sql      TYPE REF TO if_osql_test_environment.
+    DATA mt_sql_data TYPE zial_tt_aunit_sql_test_data.
 
     METHODS constructor
       IMPORTING iv_ign_errors TYPE abap_bool
@@ -40,6 +43,9 @@ CLASS zial_cl_aunit DEFINITION
                 ir_tdc_data   TYPE REF TO data
                 it_sql_data   TYPE zial_tt_aunit_sql_test_data
       RAISING   cx_ecatt_tdc_access.
+
+    METHODS register_sql_data
+      IMPORTING it_sql_data TYPE zial_tt_aunit_sql_test_data.
 
 ENDCLASS.
 
@@ -50,10 +56,11 @@ CLASS zial_cl_aunit IMPLEMENTATION.
 
     mv_tdc_cnt  = iv_tdc_cnt.
     mr_tdc_data = ir_tdc_data.
-    mt_sql_data = it_sql_data.
 
     ASSIGN mr_tdc_data->* TO FIELD-SYMBOL(<ls_tdc_data>).
-    CHECK <ls_tdc_data> IS ASSIGNED.
+    IF <ls_tdc_data> IS NOT ASSIGNED.
+      RETURN.
+    ENDIF.
 
     TRY.
         mo_tdc = cl_apl_ecatt_tdc_api=>get_instance( mv_tdc_cnt ).
@@ -73,17 +80,53 @@ CLASS zial_cl_aunit IMPLEMENTATION.
           UNASSIGN: <lv_tdc_value>, <lv_tdc_var_value>.
         ENDLOOP.
 
-        IF mt_sql_data IS NOT INITIAL.
-          DATA(lt_sql_tables) = VALUE if_osql_test_environment=>ty_t_sobjnames( FOR <s_sql_test_data> IN mt_sql_data
-                                                                                ( <s_sql_test_data>-tbl_name ) ).
-          mo_sql = cl_osql_test_environment=>create( lt_sql_tables ).
-        ENDIF.
+        register_sql_data( it_sql_data ).
 
       CATCH cx_ecatt_tdc_access INTO DATA(lx_error).
-        CHECK iv_ign_errors EQ abap_false.
+        IF iv_ign_errors NE abap_false.
+          RETURN.
+        ENDIF.
         RAISE EXCEPTION lx_error.
 
     ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD set_sql_data.
+
+    FIELD-SYMBOLS <lt_tbl_data> TYPE ANY TABLE.
+
+    register_sql_data( it_sql_data ).
+    IF mo_sql IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    mo_sql->clear_doubles( ).
+
+    LOOP AT mt_sql_data ASSIGNING FIELD-SYMBOL(<ls_sql_test_data>).
+      ASSIGN <ls_sql_test_data>-tbl_data->* TO <lt_tbl_data>.
+      CHECK <lt_tbl_data> IS ASSIGNED.
+      mo_sql->insert_test_data( <lt_tbl_data> ).
+      UNASSIGN <lt_tbl_data>.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD register_sql_data.
+
+    mt_sql_data = it_sql_data.
+
+    IF mo_sql IS BOUND.
+      RETURN.
+    ENDIF.
+
+    IF mt_sql_data IS NOT INITIAL.
+      DATA(lt_sql_tables) = VALUE if_osql_test_environment=>ty_t_sobjnames( FOR <s_sql_test_data> IN mt_sql_data
+                                                                            ( <s_sql_test_data>-tbl_name ) ).
+      mo_sql = cl_osql_test_environment=>create( lt_sql_tables ).
+    ENDIF.
 
   ENDMETHOD.
 
@@ -103,16 +146,7 @@ CLASS zial_cl_aunit IMPLEMENTATION.
 
   METHOD on_setup.
 
-    FIELD-SYMBOLS <lt_tbl_data> TYPE ANY TABLE.
-
-    IF mo_sql IS BOUND.
-      LOOP AT mt_sql_data ASSIGNING FIELD-SYMBOL(<ls_sql_test_data>).
-        ASSIGN <ls_sql_test_data>-tbl_data->* TO <lt_tbl_data>.
-        CHECK <lt_tbl_data> IS ASSIGNED.
-        mo_sql->insert_test_data( <lt_tbl_data> ).
-        UNASSIGN <lt_tbl_data>.
-      ENDLOOP.
-    ENDIF.
+    set_sql_data( mt_sql_data ).
 
   ENDMETHOD.
 
