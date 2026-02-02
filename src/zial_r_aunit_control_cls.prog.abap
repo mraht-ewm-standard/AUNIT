@@ -123,6 +123,10 @@ CLASS lcl_exits IMPLEMENTATION.
 
   METHOD on_salv_hotspot.
 
+    DATA lr_s_output TYPE REF TO s_alv_output ##NEEDED.
+
+    lr_s_output ?= ir_s_output.
+
     CASE iv_column.
       WHEN gc_alv_fname-btn_exec.
         ##TODO. " Run all AUNIT tests of class
@@ -148,6 +152,11 @@ CLASS lcl_exits IMPLEMENTATION.
 
 
   METHOD on_salv_double_click.
+
+    DATA lr_s_output TYPE REF TO s_alv_output ##NEEDED.
+
+    lr_s_output ?= ir_s_output.
+
   ENDMETHOD.
 
 
