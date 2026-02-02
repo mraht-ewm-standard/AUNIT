@@ -17,8 +17,8 @@ CLASS zial_cl_aunit DEFINITION
     METHODS on_teardown.
     METHODS on_class_teardown.
 
-    METHODS active
-      IMPORTING iv_active        TYPE abap_bool
+    METHODS is_active
+      IMPORTING iv_is_active     TYPE abap_bool
       RETURNING VALUE(rv_result) TYPE abap_bool.
 
     METHODS set_sql_data
@@ -34,8 +34,8 @@ CLASS zial_cl_aunit DEFINITION
     DATA mo_tdc          TYPE REF TO cl_apl_ecatt_tdc_api.
     DATA mv_tdc_var_name TYPE etvar_id.
 
-    DATA mo_sql      TYPE REF TO if_osql_test_environment.
-    DATA mt_sql_data TYPE zial_tt_aunit_sql_test_data.
+    DATA mo_sql          TYPE REF TO if_osql_test_environment.
+    DATA mt_sql_data     TYPE zial_tt_aunit_sql_test_data.
 
     METHODS constructor
       IMPORTING iv_ign_errors TYPE abap_bool
@@ -169,9 +169,9 @@ CLASS zial_cl_aunit IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD active.
+  METHOD is_active.
 
-    rv_result = iv_active.
+    rv_result = iv_is_active.
 
   ENDMETHOD.
 

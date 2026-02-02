@@ -64,7 +64,7 @@ CLASS ltc_aunit IMPLEMENTATION.
 
   METHOD t0001.
 
-    CHECK mo_aunit->active( abap_true ).
+    CHECK mo_aunit->is_active( abap_true ).
 
     cl_abap_unit_assert=>assert_equals( exp = 1
                                         act = 1 ).
