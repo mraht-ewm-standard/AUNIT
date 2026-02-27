@@ -55,7 +55,7 @@ CLASS lcl_exits IMPLEMENTATION.
 
         TRY.
             DATA(lo_compiler) = NEW cl_abap_compiler( p_name             = CONV #( <ls_where_used>-object )
-                                                      p_no_package_check = 'X' ).
+                                                      p_no_package_check = abap_true ).
             lo_compiler->get_single_ref( EXPORTING  p_full_name = |\\TY:{ mc_aunit_clas_name }\\ME:{ mc_aunit_meth_name }|
                                                     p_grade     = 1
                                          IMPORTING  p_result    = DATA(lt_result) ##NEEDED
