@@ -20,90 +20,99 @@ CLASS lcl_exits IMPLEMENTATION.
 
   METHOD on_selscreen_pbo.
 
-    CONSTANTS mc_aunit_clas_name TYPE seoclname  VALUE 'ZIAL_CL_AUNIT'.
     CONSTANTS mc_aunit_meth_name TYPE seomtdname VALUE 'IS_ACTIVE'.
+    CONSTANTS mc_aunit_clas_name TYPE seoclsname VALUE 'ZIAL_CL_AUNIT'.
 
-    DATA(lt_object_name) = VALUE rinfoobj( ( object = mc_aunit_meth_name encl_obj = mc_aunit_clas_name ) ).
-    DATA(lt_object_type) = VALUE zial_tt_dev_obj_type( ( zial_cl_dev_obj=>mc_eu_obj_type-clas ) ).
-    DATA(lt_where_used) = zial_cl_dev_obj=>det_where_used( iv_object_class = zial_cl_dev_obj=>mc_eu_obj_type-meth
-                                                           it_object_name  = lt_object_name
-                                                           it_object_type  = lt_object_type ).
-    SELECT
-      FROM @lt_where_used AS devobj ##ITAB_KEY_IN_SELECT
-           JOIN tadir     AS tadir  ON tadir~obj_name = devobj~encl_objec
-      FIELDS devclass,
-             devobj~encl_objec    AS obj_name,
-             @icon_configuration  AS btn_tests,
-             @icon_execute_object AS btn_exec
-      ORDER BY devclass
-      INTO CORRESPONDING FIELDS OF TABLE @gt_output.
+    TRY.
+        DATA(lt_object_name) = VALUE rinfoobj( ( object   = mc_aunit_meth_name
+                                                 encl_obj = mc_aunit_clas_name ) ).
+        DATA(lt_object_type) = VALUE zial_tt_dev_obj_type( ( zial_cl_dev_obj=>mc_eu_obj_type-clas ) ).
+        DATA(lt_where_used) = zial_cl_dev_obj=>det_where_used( iv_object_class = zial_cl_dev_obj=>mc_eu_obj_type-meth
+                                                               it_object_name  = lt_object_name
+                                                               it_object_type  = lt_object_type ).
+        SELECT
+          FROM @lt_where_used AS devobj ##ITAB_KEY_IN_SELECT
+               JOIN tadir     AS tadir  ON tadir~obj_name EQ devobj~encl_objec
+          FIELDS devclass,
+                 devobj~encl_objec    AS obj_name,
+                 @icon_configuration  AS btn_tests,
+                 @icon_execute_object AS btn_exec
+          ORDER BY devclass
+          INTO CORRESPONDING FIELDS OF TABLE @gt_output.
 
-    ##TODO. " Read method def. and impl. for each dev. obj.
-    " check if controllable
-    " add existing / remove non-existing
+        ##TODO. " Read method def. and impl. for each dev. obj.
+        " check if controllable
+        " add existing / remove non-existing
 
-    LOOP AT lt_where_used ASSIGNING FIELD-SYMBOL(<s_where_used>)
-         GROUP BY ( encl_obj = <s_where_used>-encl_objec ) ASSIGNING FIELD-SYMBOL(<lg_where_used>).
+        LOOP AT lt_where_used ASSIGNING FIELD-SYMBOL(<s_where_used>)
+             GROUP BY ( encl_obj = <s_where_used>-encl_objec ) ASSIGNING FIELD-SYMBOL(<lg_where_used>).
 
-      ASSIGN gt_output[ obj_name = <lg_where_used>-encl_obj ] TO FIELD-SYMBOL(<ls_output>) ELSE UNASSIGN.
-      CHECK <ls_output> IS ASSIGNED.
+          ASSIGN gt_output[ obj_name = <lg_where_used>-encl_obj ] TO FIELD-SYMBOL(<ls_output>) ELSE UNASSIGN.
+          IF <ls_output> IS NOT ASSIGNED.
+            CONTINUE.
+          ENDIF.
 
-      DATA(lo_clas) = NEW zial_cl_clas( <ls_output>-obj_name ).
-      lo_clas->read_source_code( IMPORTING et_tests = DATA(lt_source_code_tests) ).
+          DATA(lo_clas) = NEW zial_cl_clas( <ls_output>-obj_name ).
+          lo_clas->read_source_code( IMPORTING et_tests = DATA(lt_source_code_tests) ).
 
-      LOOP AT GROUP <lg_where_used> ASSIGNING FIELD-SYMBOL(<ls_where_used>).
+          LOOP AT GROUP <lg_where_used> ASSIGNING FIELD-SYMBOL(<ls_where_used>).
 
-        TRY.
-            DATA(lo_compiler) = NEW cl_abap_compiler( p_name             = CONV #( <ls_where_used>-object )
-                                                      p_no_package_check = abap_true ).
-            lo_compiler->get_single_ref( EXPORTING  p_full_name = |\\TY:{ mc_aunit_clas_name }\\ME:{ mc_aunit_meth_name }|
-                                                    p_grade     = 1
-                                         IMPORTING  p_result    = DATA(lt_result) ##NEEDED
-                                         EXCEPTIONS OTHERS      = 0 ).
+            TRY.
+                DATA(lo_compiler) = NEW cl_abap_compiler( p_name             = CONV #( <ls_where_used>-object )
+                                                          p_no_package_check = abap_true ).
+                lo_compiler->get_single_ref( EXPORTING  p_full_name = |\\TY:{ mc_aunit_clas_name }\\ME:{ mc_aunit_meth_name }|
+                                                        p_grade     = 1
+                                             IMPORTING  p_result    = DATA(lt_result) ##NEEDED
+                                             EXCEPTIONS OTHERS      = 0 ).
 
-          CATCH zcx_error.
-            MESSAGE e016(zial_dev_basis) WITH <ls_where_used>-full_name INTO DATA(lv_msgtx) ##NEEDED.
-            INSERT zial_cl_log=>to_bapiret( iv_msgid = sy-msgid
-                                            iv_msgty = sy-msgty
-                                            iv_msgno = sy-msgno
-                                            iv_msgv1 = sy-msgv1
-                                            iv_msgv2 = sy-msgv2
-                                            iv_msgv3 = sy-msgv3
-                                            iv_msgv4 = sy-msgv4 ) INTO TABLE gt_log.
+              CATCH zcx_error.
+                MESSAGE e016(zial_dev_basis) WITH <ls_where_used>-full_name INTO DATA(lv_msgtx) ##NEEDED.
+                INSERT zial_cl_log=>to_bapiret( iv_msgid = sy-msgid
+                                                iv_msgty = sy-msgty
+                                                iv_msgno = sy-msgno
+                                                iv_msgv1 = sy-msgv1
+                                                iv_msgv2 = sy-msgv2
+                                                iv_msgv3 = sy-msgv3
+                                                iv_msgv4 = sy-msgv4 ) INTO TABLE gt_log.
 
-        ENDTRY.
+            ENDTRY.
 
-        LOOP AT lt_result ASSIGNING FIELD-SYMBOL(<ls_result>).
+            LOOP AT lt_result ASSIGNING FIELD-SYMBOL(<ls_result>).
 
-          INSERT VALUE #( incl = <ls_where_used>-object
-                          line = <ls_result>-line ) INTO TABLE <ls_output>-tests ASSIGNING FIELD-SYMBOL(<ls_test>).
+              INSERT VALUE #( incl = <ls_where_used>-object
+                              line = <ls_result>-line ) INTO TABLE <ls_output>-tests ASSIGNING FIELD-SYMBOL(<ls_test>).
 
-          DO <ls_result>-line TIMES.
+              DO <ls_result>-line TIMES.
 
-            DATA(lv_index) = sy-index.
-            ASSIGN lt_source_code_tests[ <ls_result>-line - lv_index ] TO FIELD-SYMBOL(<lv_source_code_line>) ELSE UNASSIGN.
-            IF <lv_source_code_line> IS NOT ASSIGNED.
-              EXIT.
-            ENDIF.
+                DATA(lv_index) = sy-index.
+                ASSIGN lt_source_code_tests[ <ls_result>-line - lv_index ] TO FIELD-SYMBOL(<lv_source_code_line>) ELSE UNASSIGN.
+                IF <lv_source_code_line> IS NOT ASSIGNED.
+                  EXIT.
+                ENDIF.
 
-            zial_cl_regex_search=>search( EXPORTING iv_pattern    = zial_cl_clas=>mc_regex-imp_method_name
-                                                    iv_line       = <lv_source_code_line>
-                                          IMPORTING et_submatches = DATA(lt_submatches) ).
-            ASSIGN lt_submatches[ 1 ]-value TO FIELD-SYMBOL(<lv_method_name>) ELSE UNASSIGN.
-            IF <lv_method_name> IS NOT ASSIGNED.
-              CONTINUE.
-            ENDIF.
+                zial_cl_regex_search=>search( EXPORTING iv_pattern    = zial_cl_clas=>mc_regex-imp_method_name
+                                                        iv_line       = <lv_source_code_line>
+                                              IMPORTING et_submatches = DATA(lt_submatches) ).
+                ASSIGN lt_submatches[ 1 ]-value TO FIELD-SYMBOL(<lv_method_name>) ELSE UNASSIGN.
+                IF <lv_method_name> IS NOT ASSIGNED.
+                  CONTINUE.
+                ENDIF.
 
-            <ls_test>-name = <lv_method_name>.
-            EXIT.
+                <ls_test>-name = <lv_method_name>.
+                EXIT.
 
-          ENDDO.
+              ENDDO.
+
+            ENDLOOP.
+
+          ENDLOOP.
 
         ENDLOOP.
 
-      ENDLOOP.
+      CATCH cx_class_not_existent INTO DATA(lx_error).
+        MESSAGE lx_error TYPE 'S' DISPLAY LIKE 'E'.
 
-    ENDLOOP.
+    ENDTRY.
 
   ENDMETHOD.
 
